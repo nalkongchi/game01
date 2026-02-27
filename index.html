@@ -291,13 +291,17 @@ hr.dv{border:none;border-top:1px solid var(--bdr);margin:10px 0}
 </style>
 </head>
 <body>
+<audio id="bgm" loop preload="auto" autoplay>
+  <source src="bgm.mp3" type="audio/mpeg">
+</audio>
+
 <div id="app">
 
   <!-- TITLE -->
   <div id="screen-title" class="screen screen-flex active">
     <div class="ttl-em">🔮</div>
     <div class="ttl-main">마법사 수련생<br>아카데미</div>
-    <div class="ttl-sub">— MAGE ACADEMY v3 —</div>
+    <div class="ttl-sub">— MAGE ACADEMY v4 —</div>
     <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:8px">
       <button class="btn" id="new-game-btn">✦ 새 게임</button>
       <button class="btn" id="load-btn" style="display:none">▶ 이어하기</button>
@@ -426,10 +430,10 @@ hr.dv{border:none;border-top:1px solid var(--bdr);margin:10px 0}
     <div class="en-ttl" id="en-main-ttl">메인 엔딩</div>
     <div class="en-txt" id="en-main-txt"></div>
 
-    <div class="box" id="en-rom-wrap" style="max-width:520px;width:100%;padding:14px;display:none">
-      <div class="px9" style="color:var(--pink);margin-bottom:10px;text-shadow:0 0 8px var(--pink)">💕 로맨스 에필로그</div>
-      <div class="px10" id="en-rom-ttl" style="color:var(--pink);margin-bottom:10px;line-height:1.8"></div>
-      <div class="en-txt" id="en-rom-txt" style="font-size:13px;max-width:none"></div>
+    <div class="box" id="en-side-wrap" style="max-width:520px;width:100%;padding:14px;display:none">
+      <div class="px9" id="en-side-label" style="color:var(--pink);margin-bottom:10px;text-shadow:0 0 8px var(--pink)">💕 로맨스 에필로그</div>
+      <div class="px10" id="en-side-ttl" style="color:var(--pink);margin-bottom:10px;line-height:1.8"></div>
+      <div class="en-txt" id="en-side-txt" style="font-size:13px;max-width:none"></div>
     </div>
 
     <div class="box" style="max-width:520px;width:100%;padding:14px">
@@ -507,7 +511,12 @@ hr.dv{border:none;border-top:1px solid var(--bdr);margin:10px 0}
    데이터
 ═════════════════════════════════════════════ */
 
-const SAVE_KEY = 'mageAcad_v3';
+const SAVE_KEY = 'mageAcad_v4';
+
+const SOLO_ENDING = {
+  ttl:'솔로 엔딩 — 혼자여도 괜찮아',
+  txt:'3년의 수련이 끝났지만, 이번엔 누구의 손도 잡지 않았다. 조금은 쓸쓸했지만 이상하게 후회는 없었다. 당신은 스스로의 힘으로 여기까지 왔고, 앞으로의 길도 충분히 걸어갈 수 있다. 누군가와 함께하는 미래는 아직 열려 있다. 다만, 이번 주인공은 오롯이 당신 자신이었다.'
+};
 
 const NPCS = [
   { id:'leon',    icon:'🤴', name:'레온',    title:'왕국의 왕자',      color:'#e8b830',
@@ -847,6 +856,9 @@ let _lvCb = null;
 let _lvNpc = null;
 let _lvMark = null;
 
+/* BGM */
+let bgmFallbackHooked = false;
+
 /* ═════════════════════════════════════════════
    유틸
 ═════════════════════════════════════════════ */
@@ -1011,6 +1023,8 @@ function saveGame() {
 
 function clearSave() {
   localStorage.removeItem(SAVE_KEY);
+  localStorage.removeItem('mageAcad_v4');
+  localStorage.removeItem('mageAcad_v3');
   localStorage.removeItem('mageAcad_v2');
 }
 
@@ -1034,6 +1048,50 @@ function slotText(v) {
 }
 
 /* ═════════════════════════════════════════════
+   BGM
+═════════════════════════════════════════════ */
+
+function getBgm() {
+  return document.getElementById('bgm');
+}
+
+async function tryStartBgm() {
+  const bgm = getBgm();
+  if (!bgm) return false;
+
+  bgm.volume = 0.35;
+
+  try {
+    await bgm.play();
+    unhookBgmFallback();
+    return true;
+  } catch (err) {
+    hookBgmFallback();
+    return false;
+  }
+}
+
+function bgmFallbackHandler() {
+  tryStartBgm();
+}
+
+function hookBgmFallback() {
+  if (bgmFallbackHooked) return;
+  bgmFallbackHooked = true;
+  document.addEventListener('pointerdown', bgmFallbackHandler, true);
+  document.addEventListener('keydown', bgmFallbackHandler, true);
+  document.addEventListener('touchstart', bgmFallbackHandler, true);
+}
+
+function unhookBgmFallback() {
+  if (!bgmFallbackHooked) return;
+  bgmFallbackHooked = false;
+  document.removeEventListener('pointerdown', bgmFallbackHandler, true);
+  document.removeEventListener('keydown', bgmFallbackHandler, true);
+  document.removeEventListener('touchstart', bgmFallbackHandler, true);
+}
+
+/* ═════════════════════════════════════════════
    초기화
 ═════════════════════════════════════════════ */
 
@@ -1052,18 +1110,55 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.appendChild(s);
   }
 
-  if (localStorage.getItem(SAVE_KEY) || localStorage.getItem('mageAcad_v2')) {
+  if (
+    localStorage.getItem(SAVE_KEY) ||
+    localStorage.getItem('mageAcad_v4') ||
+    localStorage.getItem('mageAcad_v3') ||
+    localStorage.getItem('mageAcad_v2')
+  ) {
     document.getElementById('load-btn').style.display = 'inline-block';
   }
 
-  document.getElementById('new-game-btn').addEventListener('click', startCreate);
-  document.getElementById('load-btn').addEventListener('click', loadGame);
-  document.getElementById('back-btn').addEventListener('click', () => showScreen('screen-title'));
-  document.getElementById('start-btn').addEventListener('click', confirmCreate);
-  document.getElementById('confirm-btn').addEventListener('click', confirmMonth);
-  document.getElementById('date-btn').addEventListener('click', openDateMenu);
-  document.getElementById('restart-btn').addEventListener('click', restartGame);
-  document.getElementById('ev-close-btn').addEventListener('click', closeEvModal);
+  document.getElementById('new-game-btn').addEventListener('click', () => {
+    tryStartBgm();
+    startCreate();
+  });
+
+  document.getElementById('load-btn').addEventListener('click', () => {
+    tryStartBgm();
+    loadGame();
+  });
+
+  document.getElementById('back-btn').addEventListener('click', () => {
+    tryStartBgm();
+    showScreen('screen-title');
+  });
+
+  document.getElementById('start-btn').addEventListener('click', () => {
+    tryStartBgm();
+    confirmCreate();
+  });
+
+  document.getElementById('confirm-btn').addEventListener('click', () => {
+    tryStartBgm();
+    confirmMonth();
+  });
+
+  document.getElementById('date-btn').addEventListener('click', () => {
+    tryStartBgm();
+    openDateMenu();
+  });
+
+  document.getElementById('restart-btn').addEventListener('click', () => {
+    tryStartBgm();
+    restartGame();
+  });
+
+  document.getElementById('ev-close-btn').addEventListener('click', () => {
+    tryStartBgm();
+    closeEvModal();
+  });
+
   document.getElementById('date-cancel-btn').addEventListener('click', closeDateModal);
   document.getElementById('npc-close-btn').addEventListener('click', closeNpcModal);
 
@@ -1076,6 +1171,8 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('lv-modal').addEventListener('click', e => {
     if (e.target === e.currentTarget) closeLvModal();
   });
+
+  tryStartBgm();
 });
 
 /* ═════════════════════════════════════════════
@@ -1778,6 +1875,8 @@ function buyItem(id) {
   const it = SHOP.find(x => x.id === id);
   if (!it || G.gold < it.cost) return;
 
+  tryStartBgm();
+
   G.gold -= it.cost;
   applyEff(it.eff);
   addLog(`🛍️ ${it.name} 구매 (${it.desc})`, 'good');
@@ -1835,13 +1934,29 @@ function showEnding(main, romance) {
   document.getElementById('en-main-ttl').textContent = main.ttl;
   document.getElementById('en-main-txt').textContent = main.txt;
 
-  const romWrap = document.getElementById('en-rom-wrap');
+  const sideWrap = document.getElementById('en-side-wrap');
+  const sideLabel = document.getElementById('en-side-label');
+  const sideTtl = document.getElementById('en-side-ttl');
+  const sideTxt = document.getElementById('en-side-txt');
+
+  sideWrap.style.display = 'block';
+
   if (romance) {
-    romWrap.style.display = 'block';
-    document.getElementById('en-rom-ttl').textContent = romance.ttl;
-    document.getElementById('en-rom-txt').textContent = romance.txt;
+    sideLabel.textContent = '💕 로맨스 에필로그';
+    sideLabel.style.color = 'var(--pink)';
+    sideLabel.style.textShadow = '0 0 8px var(--pink)';
+    sideTtl.style.color = 'var(--pink)';
+
+    sideTtl.textContent = romance.ttl;
+    sideTxt.textContent = romance.txt;
   } else {
-    romWrap.style.display = 'none';
+    sideLabel.textContent = '🌙 솔로 에필로그';
+    sideLabel.style.color = 'var(--silver)';
+    sideLabel.style.textShadow = '0 0 8px rgba(184,204,224,.5)';
+    sideTtl.style.color = 'var(--silver)';
+
+    sideTtl.textContent = SOLO_ENDING.ttl;
+    sideTxt.textContent = SOLO_ENDING.txt;
   }
 
   document.getElementById('en-meta').innerHTML = `
@@ -1874,11 +1989,15 @@ function showEnding(main, romance) {
 ═════════════════════════════════════════════ */
 
 function loadGame() {
-  const v3 = localStorage.getItem(SAVE_KEY);
+  const v4 = localStorage.getItem(SAVE_KEY) || localStorage.getItem('mageAcad_v4');
+  const v3 = localStorage.getItem('mageAcad_v3');
   const v2 = localStorage.getItem('mageAcad_v2');
 
-  if (v3) {
+  if (v4) {
+    G = normalizeGameState(JSON.parse(v4));
+  } else if (v3) {
     G = normalizeGameState(JSON.parse(v3));
+    saveGame();
   } else if (v2) {
     G = migrateLegacySave(JSON.parse(v2));
     saveGame();
